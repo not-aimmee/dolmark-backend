@@ -80,6 +80,7 @@ app.post("/send-email", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to send email" });
   }
 });
+
 app.post("/upload-cv", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -87,19 +88,22 @@ app.post("/upload-cv", upload.single("file"), async (req, res) => {
     }
 
     const result = await cloudinary.v2.uploader.upload(req.file.path, {
-      resource_type: "raw",
+      resource_type: "auto",
       folder: "cv_uploads",
     });
 
-    fs.unlinkSync(req.file.path);
+    try {
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    } catch (err) {
+      console.error("Failed to delete temp file:", err);
+    }
 
-    res.json({ url: result.secure_url });
+    res.json({ secure_url: result.secure_url });
   } catch (err) {
-    console.error("Cloudinary upload error:", err);
-    res.status(500).json({ error: "CV upload failed" });
+    console.error("Cloudinary upload error:", err.message, err.stack);
+    res.status(500).json({ error: "CV upload failed", details: err.message });
   }
 });
-
 
 // Fallback to index.html for client-side routing (must be after API routes)
 app.get("/test", (req, res) => {
