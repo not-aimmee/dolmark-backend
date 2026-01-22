@@ -5,6 +5,17 @@ import cors from "cors";
 import fetch from "node-fetch";
 import path from "path";
 import { fileURLToPath } from "url";
+import multer from "multer";
+import cloudinary from "cloudinary";
+import fs from "fs";
+
+const upload = multer({ dest: "uploads/" });
+
+cloudinary.v2.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -69,6 +80,26 @@ app.post("/send-email", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to send email" });
   }
 });
+app.post("/upload-cv", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    const result = await cloudinary.v2.uploader.upload(req.file.path, {
+      resource_type: "raw",
+      folder: "cv_uploads",
+    });
+
+    fs.unlinkSync(req.file.path);
+
+    res.json({ url: result.secure_url });
+  } catch (err) {
+    console.error("Cloudinary upload error:", err);
+    res.status(500).json({ error: "CV upload failed" });
+  }
+});
+
 
 // Fallback to index.html for client-side routing (must be after API routes)
 app.get(/^(?!\/test|\/send-email).*/, (req, res) => {
