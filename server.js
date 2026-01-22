@@ -106,7 +106,7 @@ app.post("/upload-cv", upload.single("file"), async (req, res) => {
 });
 
 // Fallback to index.html for client-side routing (must be after API routes)
-app.get("/test", (req, res) => {
+app.get("/test", ( res) => {
   res.json({ message: "Backend is working!" });
 });
 const PORT = process.env.PORT || 5000;
