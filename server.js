@@ -5,10 +5,13 @@ import cors from "cors";
 import fetch from "node-fetch";
 import multer from "multer";
 import cloudinary from "cloudinary";
-import fs from "fs";
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
 
 // ✅ Cloudinary ESM fix
 cloudinary.v2.config({
@@ -61,24 +64,33 @@ app.post("/send-email", async (req, res) => {
 
 // ---------------- CV UPLOAD ROUTE ----------------
 app.post("/upload-cv", upload.single("file"), async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
-  }
-
   try {
-    const result = await cloudinary.v2.uploader.upload(req.file.path, {
-      resource_type: "auto",
-      folder: "cv_uploads",
-    });
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
-    fs.unlinkSync(req.file.path);
+    const result = await new Promise((resolve, reject) => {
+      const stream = cloudinary.v2.uploader.upload_stream(
+        {
+          folder: "cv_uploads",
+          resource_type: "auto",
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      stream.end(req.file.buffer);
+    });
 
     res.json({ secure_url: result.secure_url });
   } catch (err) {
-    console.error("Cloudinary error:", err);
-    res.status(500).json({ error: "CV upload failed" });
+    console.error("Cloudinary upload failed:", err);
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 // ---------------- START SERVER ----------------
 const PORT = process.env.PORT || 5000;
